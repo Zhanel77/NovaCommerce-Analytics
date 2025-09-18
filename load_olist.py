@@ -1,4 +1,3 @@
-
 import argparse
 import os
 import sys
@@ -9,7 +8,7 @@ TABLE_FILES = {
     # порядок загрузки с учётом FK
     "customers": "olist_customers_dataset.csv",
     "sellers": "olist_sellers_dataset.csv",
-    "geolocation": "olist_geolocation_dataset.csv",  # нет PK/FK, можно в любое время
+    "geolocation": "olist_geolocation_dataset.csv",  
     "products": "olist_products_dataset.csv",
     "product_category_name_translation": "product_category_name_translation.csv",
     "orders": "olist_orders_dataset.csv",

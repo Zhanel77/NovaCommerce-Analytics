@@ -78,3 +78,7 @@ graphql
 │   └── dashboard.png       # скриншот дашборда
 └── data/                   # CSV-файлы Olist (локально, не в GitHub)
 ```
+
+
+
+python .\load_olist.py --host 127.0.0.1 --port 5433 --db e-commercedb --user postgres --password secret --data-dir .\data --truncate
