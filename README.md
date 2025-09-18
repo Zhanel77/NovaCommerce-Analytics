@@ -82,3 +82,4 @@ graphql
 
 
 python .\load_olist.py --host 127.0.0.1 --port 5433 --db e-commercedb --user postgres --password secret --data-dir .\data --truncate
+
