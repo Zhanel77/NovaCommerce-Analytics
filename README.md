@@ -81,5 +81,13 @@ graphql
 
 
 
-python .\load_olist.py --host 127.0.0.1 --port 5433 --db e-commercedb --user postgres --password secret --data-dir .\data --truncate
+Как запускать после загрузки
 
+Сначала загрузка CSV:
+
+python load_olist.py --host 127.0.0.1 --port 5433 --db e-commercedb --user postgres --password secret --data-dir .\data --truncate
+
+
+Потом применить post_load.sql:
+
+type .\post_load.sql | docker exec -i olist_pg psql -U postgres -d e-commercedb
