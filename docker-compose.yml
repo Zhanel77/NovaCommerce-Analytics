@@ -1,17 +1,38 @@
 version: "3.9"
+
 services:
-  pg:
+  olist_pg:
     image: postgres:16
     container_name: olist_pg
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: e-commercedb
+      POSTGRES_PASSWORD: changeme123      # <<< замени
+      POSTGRES_DB: e_commercedb           # создаст базу сразу
     ports:
-      - "5432:5432"
+      - "5432:5432"                        # можно убрать, если не нужен доступ извне
     volumes:
-      - ./schema.sql:/docker-entrypoint-initdb.d/00_schema.sql
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d e_commercedb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  superset:
+    image: apache/superset:latest
+    container_name: superset
+    depends_on:
+      olist_pg:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: "please_change_me_to_a_long_random_string"
+      # опционально хранить метадату Superset в Postgres (вместо sqlite):
+      # SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://postgres:changeme123@olist_pg:5432/superset_meta
+    # volumes:  # при желании можно примонтировать superset_config.py
+    #   - ./superset:/app/pythonpath
+
 volumes:
   pgdata:
