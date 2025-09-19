@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: e-commercedb
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - ./schema.sql:/docker-entrypoint-initdb.d/00_schema.sql
       - pgdata:/var/lib/postgresql/data

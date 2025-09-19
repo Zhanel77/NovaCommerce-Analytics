@@ -75,12 +75,12 @@ docker ps
 ```bash
 pip install psycopg2-binary
 
-python .\load_olist.py --host 127.0.0.1 --port 5433 --db e-commercedb --user postgres --password secret --data-dir .\data --truncate
+python .\load_olist.py --host 127.0.0.1 --port 5432 --db e-commercedb --user postgres --password secret --data-dir .\data --truncate
 ```
 
 ****Ожидаемые логи: [OK] customers: 99441 rows, …, [OK] order_items: 112650 rows и т.д.****
 
-### 3) Постобработка и валидacja FK
+### 3) Постобработка и валидaция FK
 
 ***Иногда в CSV встречаются категории, которых нет в переводе. Скрипт post_load.sql добавит недостающие категории и валидирует внешний ключ:***
 

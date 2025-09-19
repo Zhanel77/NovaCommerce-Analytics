@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 import argparse, os, sys, psycopg2
 
+
 TABLE_FILES = {
     "customers": "olist_customers_dataset.csv",
     "sellers": "olist_sellers_dataset.csv",
     "geolocation": "olist_geolocation_dataset.csv",
-    "products": "olist_products_dataset.csv",
     "product_category_name_translation": "product_category_name_translation.csv",
+    "products": "olist_products_dataset.csv",
     "orders": "olist_orders_dataset.csv",
     "order_items": "olist_order_items_dataset.csv",
     "order_payments": "olist_order_payments_dataset.csv",
     "order_reviews": "olist_order_reviews_dataset.csv",
 }
+
 
 COPY_SQL = {
     "customers": """
@@ -86,6 +88,8 @@ def main():
     if not os.path.isdir(a.data_dir):
         print(f"[ERR] data dir not found: {a.data_dir}", file=sys.stderr); sys.exit(1)
     conn = connect(a); conn.autocommit = False; cur = conn.cursor()
+    cur.execute("ALTER TABLE IF EXISTS olist.products DROP CONSTRAINT IF EXISTS products_cat_fk;")
+    conn.commit()
 
     if a.truncate:
         for t in ["order_reviews","order_payments","order_items","orders","products",
