@@ -72,7 +72,7 @@ def parse_args():
     p.add_argument("--port", default="5433")
     p.add_argument("--db",   default="e-commercedb")
     p.add_argument("--user", default="postgres")
-    p.add_argument("--password", default="secret")
+    p.add_argument("--password", default="postgres")
     p.add_argument("--data-dir", default="./data")
     p.add_argument("--truncate", action="store_true")
     return p.parse_args()

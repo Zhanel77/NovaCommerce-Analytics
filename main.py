@@ -1,7 +1,7 @@
 import pandas as pd
 from sqlalchemy import create_engine
 
-DB_URL = "postgresql+psycopg2://postgres:secret@127.0.0.1:5433/e-commercedb"
+DB_URL = "postgresql+psycopg2://postgres:postgres@127.0.0.1:5433/e-commercedb"
 
 sqls = {
  "top_categories_revenue": """
