@@ -1,0 +1,6 @@
+payment_type,total_value,pct_share
+credit_card,12542084.19,78.34
+boleto,2869361.27,17.92
+voucher,379436.87,2.37
+debit_card,217989.79,1.36
+not_defined,0.00,0.00
