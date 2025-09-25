@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine, text
 from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill
 from openpyxl.formatting.rule import ColorScaleRule
 
 DB_URL = os.getenv(
@@ -66,6 +67,12 @@ def main():
         ws.freeze_panes = "B2"                     # фиксируем шапку
         ws.auto_filter.ref = ws.dimensions         # включаем фильтры
 
+        # делаем заголовки жирными с заливкой
+        header_fill = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+            cell.fill = header_fill
+
         # условное форматирование по числовым колонкам
         for col in ws.iter_cols(min_col=2, max_col=ws.max_column, min_row=2):
             rng = f"{col[0].column_letter}2:{col[0].column_letter}{ws.max_row}"
@@ -75,6 +82,11 @@ def main():
                 end_type="max", end_color="FF00AA00"
             )
             ws.conditional_formatting.add(rng, rule)
+
+        # автоподбор ширины колонок
+        for col_cells in ws.columns:
+            max_length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in col_cells)
+            ws.column_dimensions[col_cells[0].column_letter].width = max_length + 2
 
     wb.save(OUT_FILE)
     print(f"✅ Created {OUT_FILE}, {len(QUERIES)} sheets, {total_rows} rows")

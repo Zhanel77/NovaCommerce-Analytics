@@ -65,30 +65,10 @@ NovaCommerce-Analytics/
 
 ### 1) Поднять PostgreSQL в Docker
 ```bash
-docker compose up -d
-docker ps       
-```
-***schema.sql применится автоматически при первом старте (чистый volume).***
-
-### 2) Загрузить данные
-
-```bash
-pip install psycopg2-binary
-
-python .\load_olist.py --host 127.0.0.1 --port 5432 --db e-commercedb --user postgres --password secret --data-dir .\data --truncate
+docker compose up -d --build     
 ```
 
-****Ожидаемые логи: [OK] customers: 99441 rows, …, [OK] order_items: 112650 rows и т.д.****
-
-### 3) Постобработка и валидaция FK
-
-***Иногда в CSV встречаются категории, которых нет в переводе. Скрипт post_load.sql добавит недостающие категории и валидирует внешний ключ:***
-
-```bash
-type .\post_load.sql | docker exec -i olist_pg psql -U postgres -d e-commercedb
-```
-
-### 4) Проверки в pgAdmin/psql
+### 2) Проверки в pgAdmin/psql
 
 pgAdmin:
 
@@ -101,15 +81,8 @@ pgAdmin:
 
 ***Найди Schemas → olist → Tables, открой данные через View/Edit Data.***
 
-psql через docker:
-```bash
-docker exec -it olist_pg psql -U postgres -d e-commercedb
-\dt olist.*
-SELECT COUNT(*) FROM olist.orders;
-\q
-```
 
-### 5) Выполнить базовые SQL и аналитики
+### 3) Выполнить базовые SQL и аналитики
 
 Проверки по заданию:
 
@@ -143,7 +116,7 @@ GROUP BY o.order_id, c.customer_state
 ORDER BY order_sum DESC
 LIMIT 10;
 ```
-### 6) Python-скрипт для выгрузок
+### 4) Python-скрипт для выгрузок
 ```bash
 pip install pandas SQLAlchemy psycopg2-binary
 python .\main.py
@@ -152,6 +125,58 @@ python .\main.py
 ***Скрипт выполнит 2–3 аналитических запроса, выведет первые строки в консоль и сохранит CSV рядом (top_categories_revenue.csv, payment_types_share.csv, …).***
 
 ---
+
+### Next Step:
+- Запускаем аналитические запросы (SQL).
+- Строим визуализации (PNG графики, интерактивный time slider).
+- Создаём Excel-отчёт с форматированием.
+
+### 1)Запуск аналитики и построение графиков
+```bash
+python analytics.py
+```
+
+***Результат:***
+
+📊 Папка charts/ с 6 графиками:
+
+- 01_pie_category_revenue.png — доли выручки по категориям
+- 02_bar_aov_by_state.png — средний чек по штатам
+- 03_hbar_top_sellers.png — топ-продавцы по выручке
+- 04_line_monthly_revenue.png — тренд выручки по месяцам
+- 05_hist_order_totals.png — распределение сумм заказов
+- 06_scatter_delivery_vs_review.png — связь скорости доставки и оценки
+
+```bash
+python export_exal.py
+```
+***Excel-файл exports/report_assignment2.xlsx с 3 листами:***
+
+- top_categories
+- aov_by_state
+- monthly_revenue
+
+### Time Slider
+Запуск интерактивного слайдера по месяцам:
+```bash
+python time_slider.py
+```
+
+***Файл сохраняется как charts/time_slider.html.***
+***Открой его в браузере, чтобы перемещаться по временной шкале.***
+
+### 📦 Требования
+
+***Установи пакеты (лучше в виртуальном окружении):***
+```bash
+pip install -r requirements.txt
+```
+
+или вручную:
+```bash
+pip install pandas sqlalchemy psycopg2-binary openpyxl plotly xlsxwriter matplotlib
+```
+
 
 ***Student - Kuandyk Zhanel.***
 
