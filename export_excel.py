@@ -1,96 +1,117 @@
 import os
+import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, text
-from openpyxl import load_workbook
-from openpyxl.styles import Font, PatternFill
 from openpyxl.formatting.rule import ColorScaleRule
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-DB_URL = os.getenv(
-    "DB_URL",
-    "postgresql+psycopg2://postgres:postgres@127.0.0.1:5433/postgres"
-)
+DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:postgres@db:5432/postgres")
+EXPORTS_DIR = os.getenv("EXPORTS_DIR", "exports")
+os.makedirs(EXPORTS_DIR, exist_ok=True)
 
-QUERIES = {
-    "top_categories": """
-      SELECT COALESCE(t.product_category_name_english,'(unknown)') AS category,
-             ROUND(SUM(oi.price),2) AS revenue
-      FROM order_items oi
-      JOIN products p ON p.product_id = oi.product_id
-      LEFT JOIN product_category_name_translation t
-        ON t.product_category_name = p.product_category_name
-      JOIN orders o ON o.order_id = oi.order_id
-      GROUP BY category
-      ORDER BY revenue DESC
-      LIMIT 12;
-    """,
-    "aov_by_state": """
-      WITH order_totals AS (
-        SELECT oi.order_id, SUM(oi.price) AS order_sum
-        FROM order_items oi GROUP BY oi.order_id
-      )
-      SELECT c.customer_state, ROUND(AVG(ot.order_sum),2) AS avg_order_value
-      FROM orders o
-      JOIN order_totals ot ON ot.order_id = o.order_id
-      JOIN customers c ON c.customer_id = o.customer_id
-      GROUP BY c.customer_state HAVING COUNT(*)>=50
-      ORDER BY avg_order_value DESC LIMIT 15;
-    """,
-    "monthly_revenue": """
-      SELECT DATE_TRUNC('month', o.order_purchase_timestamp)::date AS month,
-             ROUND(SUM(oi.price),2) AS revenue
-      FROM orders o
-      JOIN order_items oi ON oi.order_id = o.order_id
-      GROUP BY 1 ORDER BY 1;
-    """
+engine = create_engine(DB_URL)
+
+# ---- DataFrames from SQL (2+ JOINs) ----
+sql_city = '''
+SELECT c.customer_city AS city, COUNT(DISTINCT o.order_id) AS orders_count
+FROM orders o
+JOIN customers c ON c.customer_id = o.customer_id
+JOIN order_items oi ON oi.order_id = o.order_id
+WHERE o.order_status IN ('delivered','shipped','invoiced')
+GROUP BY city
+ORDER BY orders_count DESC
+LIMIT 30
+'''
+df_city = pd.read_sql_query(text(sql_city), engine)
+
+sql_month = '''
+SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS month,
+       SUM(oi.price + oi.freight_value) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+WHERE o.order_status IN ('delivered','shipped','invoiced')
+GROUP BY month
+ORDER BY month
+'''
+df_month = pd.read_sql_query(text(sql_month), engine)
+df_month['month'] = pd.to_datetime(df_month['month'])
+
+sql_cat = '''
+SELECT COALESCE(p.product_category_name_english,'(unknown)') AS category,
+       COUNT(*) AS items_cnt,
+       ROUND(AVG(oi.price)::numeric, 2) AS avg_price,
+       ROUND(SUM(oi.price)::numeric, 2) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+WHERE o.order_status IN ('delivered','shipped','invoiced')
+GROUP BY category
+HAVING COUNT(*) >= 50
+ORDER BY revenue DESC
+LIMIT 25
+'''
+df_cat = pd.read_sql_query(text(sql_cat), engine)
+
+export_data = {
+    "Top Cities by Orders": df_city,
+    "Monthly Revenue": df_month,
+    "Category Summary": df_cat
 }
 
-OUT_DIR = "exports"
-OUT_FILE = os.path.join(OUT_DIR, "report_assignment2.xlsx")
+out_xlsx = os.path.join(EXPORTS_DIR, "analytics_report.xlsx")
 
+with pd.ExcelWriter(out_xlsx, engine="openpyxl") as writer:
+    for sheet, df in export_data.items():
+        df.to_excel(writer, sheet_name=sheet, index=False, startrow=1, startcol=1)
+        ws = writer.sheets[sheet]
 
-def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
-    eng = create_engine(DB_URL)
+        # Title & header styling
+        ws["B1"] = f"Report: {sheet}"
+        ws["B1"].font = Font(size=16, bold=True, color="1F4E79")
+        ws.freeze_panes = "B3"
 
-    # создаём Excel
-    with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
-        total_rows = 0
-        for sheet, sql in QUERIES.items():
-            df = pd.read_sql(text(sql), eng)
-            total_rows += len(df)
-            df.to_excel(writer, sheet_name=sheet, index=False)
-            print(f"[OK] {sheet}: {len(df)} rows")
+        header_fill = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
+        header_font = Font(bold=True, color="1F4E79")
 
-    # применяем форматирование через openpyxl
-    wb = load_workbook(OUT_FILE)
-    for ws in wb.worksheets:
-        ws.freeze_panes = "B2"                     # фиксируем шапку
-        ws.auto_filter.ref = ws.dimensions         # включаем фильтры
-
-        # делаем заголовки жирными с заливкой
-        header_fill = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")
-        for cell in ws[1]:
-            cell.font = Font(bold=True)
+        for col_num in range(2, len(df.columns) + 2):
+            cell = ws.cell(row=2, column=col_num)
             cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        # условное форматирование по числовым колонкам
-        for col in ws.iter_cols(min_col=2, max_col=ws.max_column, min_row=2):
-            rng = f"{col[0].column_letter}2:{col[0].column_letter}{ws.max_row}"
-            rule = ColorScaleRule(
-                start_type="min", start_color="FFAA0000",
-                mid_type="percentile", mid_value=50, mid_color="FFFFFF00",
-                end_type="max", end_color="FF00AA00"
-            )
-            ws.conditional_formatting.add(rng, rule)
+        # Auto width
+        for column in ws.columns:
+            max_len = 0
+            col_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    max_len = max(max_len, len(str(cell.value)))
+                except:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
 
-        # автоподбор ширины колонок
-        for col_cells in ws.columns:
-            max_length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in col_cells)
-            ws.column_dimensions[col_cells[0].column_letter].width = max_length + 2
+        # Conditional formatting for numeric columns
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        for idx, col_name in enumerate(df.columns, start=2):
+            if col_name in numeric_cols and len(df) > 1:
+                col_letter = ws.cell(row=1, column=idx).column_letter
+                addr = f"{col_letter}3:{col_letter}{len(df)+2}"
+                rule = ColorScaleRule(
+                    start_type="min", start_color="63BE7B",
+                    mid_type="percentile", mid_value=50, mid_color="FFDD71",
+                    end_type="max", end_color="F8696B"
+                )
+                ws.conditional_formatting.add(addr, rule)
 
-    wb.save(OUT_FILE)
-    print(f"✅ Created {OUT_FILE}, {len(QUERIES)} sheets, {total_rows} rows")
+        # AutoFilter
+        ws.auto_filter.ref = f"B2:{ws.cell(row=len(df)+2, column=len(df.columns)+1).coordinate}"
 
+        # Thin border around table
+        thin = Border(left=Side(style="thin"), right=Side(style="thin"),
+                      top=Side(style="thin"), bottom=Side(style="thin"))
+        for r in range(2, len(df)+3):
+            for c in range(2, len(df.columns)+2):
+                ws.cell(row=r, column=c).border = thin
 
-if __name__ == "__main__":
-    main()
+total_rows = sum(len(df) for df in export_data.values())
+print(f"Created file {out_xlsx}, {len(export_data)} sheets, {total_rows} rows")
