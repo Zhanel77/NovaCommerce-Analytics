@@ -177,6 +177,18 @@ pip install -r requirements.txt
 pip install pandas sqlalchemy psycopg2-binary openpyxl plotly xlsxwriter matplotlib
 ```
 
+### Script for first part 
+- write in pgAdmin
+```bash
+INSERT INTO orders (order_id, customer_id, order_status, order_purchase_timestamp, order_delivered_customer_date)
+VALUES ('test_order_123', 'some_customer_id', 'delivered', '2018-07-01', '2018-07-10');
+
+INSERT INTO order_items (order_id, product_id, seller_id, price, freight_value)
+VALUES ('test_order_123', 'some_product_id', 'some_seller_id', 999, 20);
+```
+
+
+
 
 ***Student - Kuandyk Zhanel.***
 
