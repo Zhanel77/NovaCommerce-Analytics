@@ -133,19 +133,24 @@ python .\main.py
 
 ### 1)Запуск аналитики и построение графиков
 ```bash
-python analytics.py
+python bar_chart.py
+barh_chart.py
+hist_chart.py
+line_chart.py
+pie_chart.py
+scatter_chart.py
 ```
 
 ***Результат:***
 
 📊 Папка charts/ с 6 графиками:
 
-- 01_pie_category_revenue.png — доли выручки по категориям
-- 02_bar_aov_by_state.png — средний чек по штатам
-- 03_hbar_top_sellers.png — топ-продавцы по выручке
-- 04_line_monthly_revenue.png — тренд выручки по месяцам
-- 05_hist_order_totals.png — распределение сумм заказов
-- 06_scatter_delivery_vs_review.png — связь скорости доставки и оценки
+- pie_chart.png — доли выручки по категориям
+- bar_chart.png — средний чек по штатам
+- barh_chart.png — топ-продавцы по выручке
+- line_chart.png — тренд выручки по месяцам
+- hist_chart.png — распределение сумм заказов
+- scatter_chart.png — связь скорости доставки и оценки
 
 ```bash
 python export_exal.py
@@ -159,7 +164,7 @@ python export_exal.py
 ### Time Slider
 Запуск интерактивного слайдера по месяцам:
 ```bash
-python time_slider.py
+python time_slider_plotly.py
 ```
 
 ***Файл сохраняется как charts/time_slider.html.***
@@ -180,14 +185,49 @@ pip install pandas sqlalchemy psycopg2-binary openpyxl plotly xlsxwriter matplot
 ### Script for first part 
 - write in pgAdmin
 ```bash
-INSERT INTO orders (order_id, customer_id, order_status, order_purchase_timestamp, order_delivered_customer_date)
-VALUES ('test_order_123', 'some_customer_id', 'delivered', '2018-07-01', '2018-07-10');
+-- 1. Добавляем покупателя (сначала!)
+INSERT INTO customers (customer_id, customer_unique_id, customer_zip_code_prefix, customer_city, customer_state)
+VALUES ('test_customer_001', 'unique_test_customer', '00000', 'TestCity', 'TS');
 
-INSERT INTO order_items (order_id, product_id, seller_id, price, freight_value)
-VALUES ('test_order_123', 'some_product_id', 'some_seller_id', 999, 20);
+-- 2. Добавляем продавца
+INSERT INTO sellers (seller_id, seller_zip_code_prefix, seller_city, seller_state)
+VALUES ('test_seller_001', '00000', 'TestCity', 'TS');
+
+-- 3. Добавляем продукт (категория toys)
+INSERT INTO products (product_id, product_category_name, product_name_lenght,
+                      product_description_lenght, product_photos_qty,
+                      product_weight_g, product_length_cm, product_height_cm, product_width_cm)
+VALUES ('test_product_001', 'toys', 10, 50, 1, 500, 10, 5, 5);
+
+-- 4. Добавляем заказ (customer_id)
+INSERT INTO orders (order_id, customer_id, order_status, order_purchase_timestamp,
+                    order_approved_at, order_delivered_customer_date, order_estimated_delivery_date)
+VALUES ('test_order_001', 'test_customer_001', 'delivered',
+        NOW(), NOW(), NOW(), NOW() + INTERVAL '5 days');
+
+-- 5. Добавляем товар в заказ
+INSERT INTO order_items (order_id, order_item_id, product_id, seller_id, shipping_limit_date, price, freight_value)
+VALUES ('test_order_001', 1, 'test_product_001', 'test_seller_001',
+        NOW() + INTERVAL '2 days', 99999.99, 100.00);
 ```
 
+- Code for delete this new data
+```bash
+-- 1. Удаляем из order_items (зависит от orders, products, sellers)
+DELETE FROM order_items WHERE order_id = 'test_order_001';
 
+-- 2. Удаляем заказ
+DELETE FROM orders WHERE order_id = 'test_order_001';
+
+-- 3. Удаляем продукт
+DELETE FROM products WHERE product_id = 'test_product_001';
+
+-- 4. Удаляем продавца
+DELETE FROM sellers WHERE seller_id = 'test_seller_001';
+
+-- 5. Удаляем покупателя
+DELETE FROM customers WHERE customer_id = 'test_customer_001';
+```
 
 
 ***Student - Kuandyk Zhanel.***
