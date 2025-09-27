@@ -5,6 +5,7 @@ DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:postgres@127.0.0.1:
 engine = create_engine(DB_URL)
 OUT_DIR = "charts"; os.makedirs(OUT_DIR, exist_ok=True)
 
+# считает среднюю цену товаров по категориям и выводит топ-12 самых дорогих категорий
 sql = """
 SELECT COALESCE(t.product_category_name_english, p.product_category_name, '(unknown)') AS category,
        AVG(oi.price) AS avg_price

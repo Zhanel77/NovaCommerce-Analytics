@@ -7,6 +7,7 @@ DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:postgres@127.0.0.1:
 engine = create_engine(DB_URL)
 OUT_DIR = "charts"; os.makedirs(OUT_DIR, exist_ok=True)
 
+# рейтинг товарных категорий по доходу.
 sql = """
 SELECT COALESCE(t.product_category_name_english, p.product_category_name, '(unknown)') AS category,
        SUM(oi.price) AS revenue

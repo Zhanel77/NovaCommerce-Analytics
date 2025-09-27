@@ -185,7 +185,7 @@ pip install pandas sqlalchemy psycopg2-binary openpyxl plotly xlsxwriter matplot
 ### Script for first part 
 - write in pgAdmin
 ```bash
--- 1. Добавляем покупателя (сначала!)
+-- 1. Добавляем покупателя
 INSERT INTO customers (customer_id, customer_unique_id, customer_zip_code_prefix, customer_city, customer_state)
 VALUES ('test_customer_001', 'unique_test_customer', '00000', 'TestCity', 'TS');
 

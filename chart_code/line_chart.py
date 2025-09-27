@@ -5,6 +5,7 @@ DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:postgres@127.0.0.1:
 engine = create_engine(DB_URL)
 OUT_DIR = "charts"; os.makedirs(OUT_DIR, exist_ok=True)
 
+# динамика месячной выручки магазина
 sql = """
 SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS month,
        SUM(oi.price + oi.freight_value) AS revenue
