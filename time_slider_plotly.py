@@ -1,76 +1,80 @@
-from sqlalchemy import create_engine
-import pandas as pd
+# time_slider_plotly_db_frames.py
 import os
+import pandas as pd
+import plotly.express as px
+from sqlalchemy import create_engine, text
 
 DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:postgres@127.0.0.1:5433/postgres")
 engine = create_engine(DB_URL)
+N = int(os.getenv("TOP_N", "8"))
 
-orders    = pd.read_sql_query("SELECT * FROM public.orders", engine,
-                              parse_dates=["order_purchase_timestamp"])
-items     = pd.read_sql_query("SELECT * FROM public.order_items", engine)
-products  = pd.read_sql_query("SELECT * FROM public.products", engine)
-trans     = pd.read_sql_query("SELECT * FROM public.product_category_name_translation", engine)
-customers = pd.read_sql_query("SELECT * FROM public.customers", engine)
-
-df = (orders.merge(items, on="order_id")
-             .merge(products, on="product_id")
-             .merge(trans, on="product_category_name", how="left")
-             .merge(customers[["customer_id","customer_state"]], on="customer_id", how="left"))
-
-df["cat"] = (df["product_category_name_english"]
-             .fillna(df["product_category_name"])
-             .fillna("unknown")
-             .astype(str).str.strip().str.lower())
-
-df["month"]   = df["order_purchase_timestamp"].dt.to_period("M").dt.to_timestamp()
-df["revenue"] = df["price"].fillna(0) + df["freight_value"].fillna(0)
-
-# ===== Агрегация по категориям =====
-monthly = (df.groupby(["month","cat"], dropna=False)
-             .agg(revenue=("revenue","sum"))
-             .reset_index())
-
-# Топ-N категорий по всей истории (N=8)
-N = 8
-top_cats = (monthly.groupby("cat")["revenue"]
-                    .sum().sort_values(ascending=False)
-                    .head(N).index.tolist())
-monthly_top = monthly[monthly["cat"].isin(top_cats)].copy()
-
-print(f"Найдено уникальных категорий: {monthly['cat'].nunique()}, в топ-{N}: {len(top_cats)} -> {top_cats}")
-all_months = pd.period_range(monthly_top["month"].min(), monthly_top["month"].max(), freq="M").to_timestamp()
-cats = sorted(monthly_top["cat"].unique())
-
-full_grid = (
-    pd.MultiIndex.from_product([all_months, cats], names=["month", "cat"])
-      .to_frame(index=False)
+SQL = text("""
+WITH base AS (
+  SELECT
+    date_trunc('month', o.order_purchase_timestamp)::date AS month,
+    LOWER(TRIM(COALESCE(t.product_category_name_english, p.product_category_name, '(unknown)'))) AS cat,
+    (oi.price + oi.freight_value) AS revenue
+  FROM public.orders o
+  JOIN public.order_items oi ON oi.order_id = o.order_id
+  JOIN public.products p ON p.product_id = oi.product_id
+  LEFT JOIN public.product_category_name_translation t
+         ON t.product_category_name = p.product_category_name
+  WHERE o.order_status IN ('delivered','shipped','invoiced')
+),
+topcats AS (
+  SELECT cat
+  FROM base
+  GROUP BY cat
+  ORDER BY SUM(revenue) DESC
+  LIMIT 8
+),
+monthly AS (
+  SELECT month, cat, SUM(revenue) AS revenue
+  FROM base
+  WHERE cat IN (SELECT cat FROM topcats)
+  GROUP BY month, cat
+),
+-- все месяцы и категории, чтобы построить «растущие» кадры
+months AS (SELECT DISTINCT month FROM monthly),
+cats   AS (SELECT DISTINCT cat   FROM monthly),
+grid AS (
+  SELECT fm.month AS frame_month, m.month, c.cat
+  FROM months fm
+  JOIN months m ON m.month <= fm.month
+  CROSS JOIN cats c
+),
+filled AS (
+  SELECT g.frame_month, g.month, g.cat, COALESCE(m.revenue, 0) AS revenue
+  FROM grid g
+  LEFT JOIN monthly m
+    ON m.month = g.month AND m.cat = g.cat
+),
+cum AS (
+  SELECT
+    frame_month,
+    month,
+    cat,
+    SUM(revenue) OVER (PARTITION BY frame_month, cat ORDER BY month) AS cum_revenue
+  FROM filled
 )
+SELECT frame_month, month, cat, cum_revenue
+FROM cum
+ORDER BY frame_month, cat, month;
+""")
 
-monthly_full = (
-    full_grid
-    .merge(monthly_top, on=["month","cat"], how="left")
-    .fillna({"revenue": 0.0})
-    .sort_values(["month","cat"])
-)
+df = pd.read_sql_query(SQL, engine, params={"N": N})
+df["month"] = pd.to_datetime(df["month"])
+df["frame_month"] = pd.to_datetime(df["frame_month"])
+df["frame_str"] = df["frame_month"].dt.strftime("%Y-%m")
 
-frames = []
-for m in all_months:
-    part = monthly_full[monthly_full["month"] <= m].copy()
-    part["frame_month"] = m
-    frames.append(part)
-
-anim = pd.concat(frames, ignore_index=True)
-anim["frame_month_str"] = pd.to_datetime(anim["frame_month"]).dt.strftime("%Y-%m")
-
-import plotly.express as px
 fig = px.line(
-    anim,
-    x="month", y="revenue",
+    df,
+    x="month", y="cum_revenue",
     color="cat",
-    animation_frame="frame_month_str",
+    animation_frame="frame_str",
     line_group="cat",
-    title=f"Monthly Revenue by Top {len(cats)} Categories (Animated)",
-    labels={"month":"Date","revenue":"Revenue","cat":"Category","frame_month_str":"Month"},
+    title=f"Monthly Revenue (CUMULATIVE) by Top {df['cat'].nunique()} Categories",
+    labels={"month":"Date", "cum_revenue":"Cumulative revenue", "cat":"Category", "frame_str":"Month"}
 )
 
 fig.update_layout(
