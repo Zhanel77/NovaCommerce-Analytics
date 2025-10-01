@@ -1,15 +1,16 @@
-import os
+from sqlalchemy import create_engine
 import pandas as pd
-import plotly.express as px
+import os
 
-BASE="data"
+DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:postgres@127.0.0.1:5433/postgres")
+engine = create_engine(DB_URL)
 
-# ===== Загрузка и подготовка =====
-orders   = pd.read_csv(f"{BASE}/olist_orders_dataset.csv", parse_dates=["order_purchase_timestamp"])
-items    = pd.read_csv(f"{BASE}/olist_order_items_dataset.csv")
-products = pd.read_csv(f"{BASE}/olist_products_dataset.csv")
-trans    = pd.read_csv(f"{BASE}/product_category_name_translation.csv")
-customers= pd.read_csv(f"{BASE}/olist_customers_dataset.csv")  # на случай альтернативного графика
+orders    = pd.read_sql_query("SELECT * FROM public.orders", engine,
+                              parse_dates=["order_purchase_timestamp"])
+items     = pd.read_sql_query("SELECT * FROM public.order_items", engine)
+products  = pd.read_sql_query("SELECT * FROM public.products", engine)
+trans     = pd.read_sql_query("SELECT * FROM public.product_category_name_translation", engine)
+customers = pd.read_sql_query("SELECT * FROM public.customers", engine)
 
 df = (orders.merge(items, on="order_id")
              .merge(products, on="product_id")
@@ -52,7 +53,6 @@ monthly_full = (
     .sort_values(["month","cat"])
 )
 
-# ---- Формируем кадры «накопительно до месяца m», чтобы линии рисовались плавно ----
 frames = []
 for m in all_months:
     part = monthly_full[monthly_full["month"] <= m].copy()
@@ -93,4 +93,4 @@ fig.update_layout(
 
 os.makedirs("charts", exist_ok=True)
 fig.write_html("charts/line_timeslider_categories.html", include_plotlyjs="cdn")
-print("✅ Saved: charts/line_timeslider_categories.html")
+print("Saved: charts/line_timeslider_categories.html")
