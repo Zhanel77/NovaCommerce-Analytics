@@ -229,6 +229,14 @@ DELETE FROM sellers WHERE seller_id = 'test_seller_001';
 DELETE FROM customers WHERE customer_id = 'test_customer_001';
 ```
 
+# Use Superset
+
+***Auto refresh***
+```bash
+/script
+python stream_inserts.py
+```
+
 
 ***Student - Kuandyk Zhanel.***
 

@@ -1,77 +1,109 @@
-#!/usr/bin/env python3
-"""
-Insert meaningful streaming rows into `sales_stream` every N seconds.
-Usage:
-  export DB_URL='postgresql://user:pass@host:port/dbname'
-  python scripts/stream_inserts.py --interval 10 --max-rows 0
-"""
-import os, time, argparse, random
+# новый заказ добавляем в таблицу orders
+
+import os, time, random, uuid
+from datetime import datetime, timedelta, timezone
 import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
-def get_conn():
-    url = os.getenv("DB_URL", "postgresql://postgres:postgres@127.0.0.1:5433/postgres")
-    return psycopg2.connect(url)
+load_dotenv()
 
-def ensure_tables(conn):
-    ddl = """
-    CREATE TABLE IF NOT EXISTS public.sales_stream (
-      id BIGSERIAL PRIMARY KEY,
-      event_time   TIMESTAMPTZ NOT NULL DEFAULT now(),
-      product_id   TEXT NOT NULL REFERENCES public.products(product_id),
-      customer_id  TEXT NOT NULL REFERENCES public.customers(customer_id),
-      qty          INT  NOT NULL CHECK (qty > 0),
-      unit_price   NUMERIC(10,2) NOT NULL CHECK (unit_price >= 0)
-    );
-    CREATE INDEX IF NOT EXISTS idx_sales_stream_event_time ON public.sales_stream(event_time DESC);
-    """
-    with conn, conn.cursor() as cur:
-        cur.execute(ddl)
+CFG = {
+    "host": os.getenv("PG_HOST", "127.0.0.1"),
+    "port": int(os.getenv("PG_PORT", "5433")),
+    "dbname": os.getenv("PG_DB", "postgres"),
+    "user": os.getenv("PG_USER", "postgres"),
+    "password": os.getenv("PG_PASS", "postgres"),
+}
+INTERVAL_MIN = int(os.getenv("INTERVAL_MIN", "5"))
+INTERVAL_MAX = int(os.getenv("INTERVAL_MAX", "10"))
 
-def pick(conn, sql):
-    with conn.cursor() as cur:
-        cur.execute(sql)
-        row = cur.fetchone()
-        return row[0] if row else None
+STATUSES = ["created", "approved", "canceled"]  
 
-def insert_row(conn):
-    product_id  = pick(conn, "SELECT product_id FROM public.products ORDER BY random() LIMIT 1")
-    customer_id = pick(conn, "SELECT customer_id FROM public.customers ORDER BY random() LIMIT 1")
-    unit_price  = pick(conn, "SELECT price FROM public.order_items WHERE price > 0 ORDER BY random() LIMIT 1")
-    if unit_price is None or product_id is None or customer_id is None:
-        return None
-    qty = random.randint(1, 3)
-    with conn, conn.cursor() as cur:
-        cur.execute(
-            "INSERT INTO public.sales_stream (product_id, customer_id, qty, unit_price) VALUES (%s,%s,%s,%s)",
-            (product_id, customer_id, qty, unit_price)
-        )
-    return {"product_id": product_id, "customer_id": customer_id, "qty": qty, "unit_price": float(unit_price)}
+def connect():
+    return psycopg2.connect(**CFG)
+
+def existing_customers(cur):
+    cur.execute("""
+        SELECT DISTINCT customer_id
+        FROM orders
+        WHERE customer_id IS NOT NULL
+        LIMIT 10000
+    """)
+    return [r[0] for r in cur.fetchall()]
+
+def fallback_customers(n=100):
+    return [f"CUST{str(i).zfill(4)}" for i in range(1, n+1)]
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--interval", type=int, default=10)
-    parser.add_argument("--max-rows", type=int, default=0, help="0 = infinite")
-    args = parser.parse_args()
+    conn = connect()
+    conn.autocommit = False
+    cur = conn.cursor()
 
-    conn = get_conn()
-    ensure_tables(conn)
-    i = 0
-    try:
-        while True:
-            rec = insert_row(conn)
-            if rec:
-                i += 1
-                print(f"[{time.strftime('%H:%M:%S')}] inserted product={rec['product_id']} "
-                      f"qty={rec['qty']} price={rec['unit_price']:.2f} cust={rec['customer_id']}")
+    customers = existing_customers(cur)
+    if not customers:
+        customers = fallback_customers()  
+
+    print(f"[init] known_customers={len(customers)}")
+
+    while True:
+        try:
+            order_id = str(uuid.uuid4())
+            customer_id = random.choice(customers)
+
+            now = datetime.now(timezone.utc)
+            purchase_ts = now - timedelta(seconds=random.randint(0, 2))  
+
+            # выберем статус (чаще created/approved)
+            roll = random.random()
+            if roll < 0.65:
+                status = "created"
+            elif roll < 0.95:
+                status = "approved"
             else:
-                print(f"[{time.strftime('%H:%M:%S')}] skipped (no source rows)")
-            if args.max_rows and i >= args.max_rows:
-                break
-            time.sleep(args.interval)
-    except KeyboardInterrupt:
-        print("\nstopped by user")
-    finally:
-        conn.close()
+                status = "canceled"
+
+            approved_at = None
+            if status == "approved":
+                approved_at = purchase_ts + timedelta(seconds=random.randint(5, 120))
+
+            # для новых заказов доставка ещё не началась
+            delivered_carrier = None
+            delivered_customer = None
+
+            estimated_delivery = purchase_ts + timedelta(days=random.randint(2, 10))
+
+            cur.execute("""
+                INSERT INTO orders (
+                    order_id,
+                    customer_id,
+                    order_status,
+                    order_purchase_timestamp,
+                    order_approved_at,
+                    order_delivered_carrier_date,
+                    order_delivered_customer_date,
+                    order_estimated_delivery_date
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                order_id,
+                customer_id,
+                status,
+                purchase_ts,
+                approved_at,
+                delivered_carrier,
+                delivered_customer,
+                estimated_delivery
+            ))
+            conn.commit()
+
+            print(f"[insert] id={order_id} cust={customer_id} status={status} "
+                  f"purchase={purchase_ts.isoformat()} est_deliv={estimated_delivery.date()}")
+
+        except Exception as e:
+            conn.rollback()
+            print("[error]", e)
+
+        time.sleep(random.randint(INTERVAL_MIN, INTERVAL_MAX))
 
 if __name__ == "__main__":
     main()
