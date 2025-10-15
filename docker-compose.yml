@@ -1,5 +1,6 @@
 services:
   db:
+    shm_size: 1gb
     image: postgres:16
     container_name: olist-db
     restart: unless-stopped
