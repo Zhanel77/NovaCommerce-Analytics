@@ -57,6 +57,7 @@ services:
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: superset
       SUPERSET_FEATURE_FLAGS: '{"SQLLAB_BACKEND_PERSISTENCE": true}'
+      MAPBOX_API_KEY: "pk.eyJ1IjoiZG9lb2hqbiIsImEiOiJjbWd0NnBpN2MwMTMzMmpzZndqa2pzcm9vIn0._SDO3LjHUwQbVgSTY_Hvcg"
     volumes:
       - superset_home:/app/superset_home
     ports:
@@ -75,7 +76,70 @@ services:
           --password $${ADMIN_PASSWORD} || true
         superset init
         gunicorn -w 2 -k gthread --threads 8 --timeout 300 -b 0.0.0.0:8088 'superset.app:create_app()'
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - db
+      - node_exporter
+      - postgres_exporter
+      - custom_exporter
 
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: node_exporter
+    restart: unless-stopped
+    pid: "host"
+    ports:
+      - "9100:9100"
+
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres_exporter
+    restart: unless-stopped
+    environment:
+      # внутри docker-сети база доступна по имени сервиса "db"
+      DATA_SOURCE_NAME: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      - db
+
+  custom_exporter:
+    build: ./exporters
+    container_name: custom_exporter
+    restart: unless-stopped
+    command: ["python", "custom_exporter.py"]
+    ports:
+      - "9101:9101"
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      - db
 volumes:
   pgdata:
   superset_home:
+  grafana_data:
