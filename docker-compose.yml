@@ -82,6 +82,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-data:/prometheus 
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"  
     ports:
       - "9090:9090"
     depends_on:
@@ -137,8 +142,12 @@ services:
       DB_NAME: postgres
       DB_USER: postgres
       DB_PASSWORD: postgres
+
+      WEATHER_API_KEY: "6bea3a864d4087d591a70398c28feb07"
+      WEATHER_CITY: "Astana"   
     depends_on:
       - db
+
 volumes:
   pgdata:
   superset_home:
