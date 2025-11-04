@@ -128,7 +128,6 @@ services:
       - "9187:9187"
     depends_on:
       - db
-
   custom_exporter:
     build: ./exporters
     container_name: custom_exporter
@@ -137,17 +136,11 @@ services:
     ports:
       - "9101:9101"
     environment:
-      DB_HOST: db
-      DB_PORT: "5432"
-      DB_NAME: postgres
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-
-      WEATHER_API_KEY: "6bea3a864d4087d591a70398c28feb07"
-      WEATHER_CITY: "Astana"   
-    depends_on:
-      - db
-
+      OPENWEATHER_API_KEY: "6bea3a864d4087d591a70398c28feb07"
+      OPENWEATHER_CITY: "Astana"
+      OPENWEATHER_LAT: "51.1694"
+      OPENWEATHER_LON: "71.4491"
+    
 volumes:
   pgdata:
   superset_home:

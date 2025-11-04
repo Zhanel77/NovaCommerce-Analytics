@@ -19,3 +19,11 @@ scrape_configs:
     metrics_path: /
     static_configs:
       - targets: ['custom_exporter:9101']
+      
+  - job_name: 'custom_api'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'external_apis'
