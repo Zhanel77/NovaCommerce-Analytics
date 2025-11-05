@@ -237,6 +237,29 @@ DELETE FROM customers WHERE customer_id = 'test_customer_001';
 python stream_inserts.py
 ```
 
+Для DB:
+
+pg_stat_database_numbackends
+
+rate(pg_stat_database_tup_returned[5m])
+
+pg_database_size_bytes
+
+time() - pg_stat_database_stats_reset
+
+Для Node:
+
+rate(node_cpu_seconds_total{mode!="idle"}[5m])
+
+node_memory_MemAvailable_bytes
+
+Для Custom:
+
+owm_temperature_celsius{city="Astana"}
+
+owm_api_up
+
+
 
 ***Student - Kuandyk Zhanel.***
 

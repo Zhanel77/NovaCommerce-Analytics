@@ -1,0 +1,18 @@
+{
+	"ulid": "01K99BEVM18QGKAG3F6R20J7N3",
+	"minTime": 1762288111145,
+	"maxTime": 1762293600000,
+	"stats": {
+		"numSamples": 791610,
+		"numFloatSamples": 791610,
+		"numSeries": 2952,
+		"numChunks": 8521
+	},
+	"compaction": {
+		"level": 1,
+		"sources": [
+			"01K99BEVM18QGKAG3F6R20J7N3"
+		]
+	},
+	"version": 1
+}

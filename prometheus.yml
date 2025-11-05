@@ -15,11 +15,6 @@ scrape_configs:
     static_configs:
       - targets: ['postgres_exporter:9187']
 
-  - job_name: 'novacommerce_custom'
-    metrics_path: /
-    static_configs:
-      - targets: ['custom_exporter:9101']
-      
   - job_name: 'custom_api'
     static_configs:
       - targets: ['host.docker.internal:8000']

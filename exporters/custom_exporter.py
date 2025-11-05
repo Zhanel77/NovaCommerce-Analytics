@@ -3,14 +3,13 @@ import time
 import requests
 from prometheus_client import start_http_server, Gauge, Info
 
-# ========= НАСТРОЙКИ =========
 # возьми ключ на https://home.openweathermap.org/api_keys
 API_KEY = os.getenv("OPENWEATHER_API_KEY", "6bea3a864d4087d591a70398c28feb07")
 CITY = os.getenv("OPENWEATHER_CITY", "Astana")
 COUNTRY = os.getenv("OPENWEATHER_COUNTRY", "KZ")  # не обязательно
 UPDATE_INTERVAL = 20  # сек
 
-# ========= МЕТРИКИ (10+ штук) =========
+# МЕТРИКИ (10+ штук) 
 m_temp = Gauge("owm_temperature_celsius", "Current temperature from OpenWeather, C", ["city"])
 m_feels = Gauge("owm_feels_like_celsius", "Feels like temperature, C", ["city"])
 m_hum = Gauge("owm_humidity_percent", "Humidity, %", ["city"])
@@ -30,9 +29,7 @@ info_exporter.info({
     "author": "student"
 })
 
-
 def fetch_and_update():
-    """забрать данные из OpenWeather и обновить метрики"""
     url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
         "q": f"{CITY},{COUNTRY}",
@@ -70,7 +67,6 @@ def fetch_and_update():
 
 
 if __name__ == "__main__":
-    # поднимаем HTTP-сервер на 8000
     start_http_server(8000)
     print("Custom exporter started on :8000")
     while True:
