@@ -1,0 +1,18 @@
+{
+	"ulid": "01K9EWHA937BWVVZ9H5HT7SPAG",
+	"minTime": 1762360860538,
+	"maxTime": 1762365600000,
+	"stats": {
+		"numSamples": 192954,
+		"numFloatSamples": 192954,
+		"numSeries": 2692,
+		"numChunks": 2692
+	},
+	"compaction": {
+		"level": 1,
+		"sources": [
+			"01K9EWHA937BWVVZ9H5HT7SPAG"
+		]
+	},
+	"version": 1
+}

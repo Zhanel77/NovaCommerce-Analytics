@@ -7,7 +7,7 @@ from prometheus_client import start_http_server, Gauge, Info
 API_KEY = os.getenv("OPENWEATHER_API_KEY", "6bea3a864d4087d591a70398c28feb07")
 UPDATE_INTERVAL = 20  # сек
 
-# 2. Города, которые будем собирать
+
 CITIES = {
     "Astana": (51.1694, 71.4491),
     "Almaty": (43.2389, 76.8897),
@@ -47,7 +47,7 @@ def fetch_city_weather(city_name: str, lat: float, lon: float):
         "appid": API_KEY,
         "units": "metric",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = requests.get(url, params=params, timeout=30)
     resp.raise_for_status()
     data = resp.json()
 
